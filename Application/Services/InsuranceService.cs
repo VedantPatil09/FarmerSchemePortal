@@ -1,4 +1,6 @@
 using AutoMapper;
+using FarmerScheme.API.Application.DTOs.Insurance;
+using FarmerScheme.API.Application.DTOs.Response;
 using FarmerScheme.API.Application.Interfaces;
 using FarmerScheme.API.Domain.Entities;
 using FarmerScheme.API.Domain.Enums;
@@ -16,9 +18,10 @@ public class InsuranceService : IInsuranceService
         _mapper = mapper;
     }
 
-    public async Task<InsuranceApplication> ApplyInsuranceAsync(int farmerId, CreateInsuranceApplicationDto dto)
+    public async Task<InsuranceApplicationResponseDto> ApplyInsuranceAsync(int farmerId, CreateInsuranceApplicationDto dto)
     {
         var crop = await _context.Crops
+            .Include(c => c.Farmer)
             .FirstOrDefaultAsync(c => c.Id == dto.CropId && c.FarmerId == farmerId);
 
         if (crop == null)
@@ -55,19 +58,25 @@ public class InsuranceService : IInsuranceService
         };
 
         _context.InsuranceApplications.Add(application);
-
         await _context.SaveChangesAsync();
 
-        return application;
+        application.Farmer = crop.Farmer;
+
+        return _mapper.Map<InsuranceApplicationResponseDto>(application);
     }
 
-    public async Task<List<InsuranceApplication>> GetMyApplicationsAsync(int farmerId, int page = 1, int pageSize = 20)
+    public async Task<List<InsuranceApplicationResponseDto>> GetMyApplicationsAsync(int farmerId, int page = 1, int pageSize = 20)
     {
-        return await _context.InsuranceApplications
+        var apps = await _context.InsuranceApplications
+            .AsNoTracking()
+            .Include(a => a.Farmer)
             .Where(a => a.FarmerId == farmerId)
+            .OrderByDescending(a => a.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
+
+        return _mapper.Map<List<InsuranceApplicationResponseDto>>(apps);
     }
 
     public async Task<bool> ApproveInsuranceAsync(int applicationId)
@@ -79,7 +88,6 @@ public class InsuranceService : IInsuranceService
             throw new KeyNotFoundException("Insurance application not found");
 
         app.Status = BaseStatus.Approved;
-
         await _context.SaveChangesAsync();
 
         return true;
@@ -98,14 +106,16 @@ public class InsuranceService : IInsuranceService
         return sumInsured * rate * area;
     }
 
-    public async Task<List<InsuranceApplication>> GetAllApplicationsAsync(int page = 1, int pageSize = 20)
+    public async Task<List<InsuranceApplicationResponseDto>> GetAllApplicationsAsync(int page = 1, int pageSize = 20)
     {
-        return await _context.InsuranceApplications
+        var apps = await _context.InsuranceApplications
+            .AsNoTracking()
             .Include(i => i.Farmer)
-            .Include(i => i.Claim)
             .OrderByDescending(i => i.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
+
+        return _mapper.Map<List<InsuranceApplicationResponseDto>>(apps);
     }
 }

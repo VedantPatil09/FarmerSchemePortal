@@ -1,16 +1,19 @@
-﻿using FarmerScheme.API.Domain.Entities;
+using FarmerScheme.API.Application.DTOs.Response;
 
-public interface ISellRequestService
+namespace FarmerScheme.API.Application.Interfaces
 {
-    Task<SellRequest> CreateSellRequestAsync(int farmerId, int cropId);
+    public interface ISellRequestService
+    {
+        Task<SellRequestResponseDto> CreateSellRequestAsync(int farmerId, int cropId);
 
-    Task<List<SellRequest>> GetAllSellRequestsAsync(int page = 1, int pageSize = 20);
+        Task<List<SellRequestResponseDto>> GetAllSellRequestsAsync(int page = 1, int pageSize = 20);
 
-    Task<object> GetOpenAuctionsAsync(int page = 1, int pageSize = 20);
+        Task<object> GetOpenAuctionsAsync(int page = 1, int pageSize = 20);
 
-    Task<bool> ApproveSellRequestAsync(int sellRequestId);
+        Task<bool> ApproveSellRequestAsync(int sellRequestId);
 
-    Task<bool> CloseAuctionAsync(int sellRequestId);
+        Task<bool> CloseAuctionAsync(int sellRequestId);
 
-    Task<object> GetAuctionResultAsync(int sellRequestId);
+        Task<object> GetAuctionResultAsync(int sellRequestId);
+    }
 }

@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using FarmerScheme.API.Domain.Entities;
 using FarmerScheme.API.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -17,6 +17,10 @@ public class ProfileService : IProfileService
 
     public async Task<ProfileEntity> CreateProfileAsync(int userId, CreateProfileDto dto)
     {
+        var existing = await _context.Profiles.AnyAsync(p => p.UserId == userId);
+        if (existing)
+            throw new InvalidOperationException("Profile already exists for this user");
+
         var profile = new ProfileEntity
         {
             UserId = userId,
@@ -30,16 +34,19 @@ public class ProfileService : IProfileService
 
         _context.Profiles.Add(profile);
 
-        foreach (var doc in dto.Documents)
+        if (dto.Documents != null)
         {
-            var document = new Document
+            foreach (var doc in dto.Documents)
             {
-                UserId = userId,
-                DocumentType = doc.DocumentType,
-                FilePath = doc.FilePath,
-            };
+                var document = new Document
+                {
+                    UserId = userId,
+                    DocumentType = doc.DocumentType,
+                    FilePath = doc.FilePath,
+                };
 
-            _context.Documents.Add(document);
+                _context.Documents.Add(document);
+            }
         }
 
         await _context.SaveChangesAsync();
@@ -50,6 +57,7 @@ public class ProfileService : IProfileService
     public async Task<ProfileResponseDto> GetMyProfileAsync(int userId, int page = 1, int pageSize = 20)
     {
         var profile = await _context.Profiles
+            .AsNoTracking()
             .Include(p => p.User)
             .FirstOrDefaultAsync(p => p.UserId == userId);
 
@@ -57,15 +65,14 @@ public class ProfileService : IProfileService
             throw new KeyNotFoundException("Profile not found");
 
         var documents = await _context.Documents
+            .AsNoTracking()
             .Where(d => d.UserId == userId)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
 
         var result = _mapper.Map<ProfileResponseDto>(profile);
-
         result.Documents = _mapper.Map<List<DocumentResponseDto>>(documents);
-
 
         return result;
     }
@@ -79,7 +86,6 @@ public class ProfileService : IProfileService
             throw new KeyNotFoundException("Profile not found");
 
         // update profile fields
-
         if (dto.LandArea.HasValue)
             profile.LandArea = dto.LandArea;
 
@@ -96,7 +102,6 @@ public class ProfileService : IProfileService
             profile.IFSCCode = dto.IFSCCode;
 
         // update documents
-
         if (dto.Documents != null)
         {
             foreach (var doc in dto.Documents)
@@ -110,7 +115,6 @@ public class ProfileService : IProfileService
                     {
                         existingDoc.DocumentType = doc.DocumentType;
                         existingDoc.FilePath = doc.FilePath;
-
                     }
                 }
                 else

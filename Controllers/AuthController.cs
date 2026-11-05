@@ -1,10 +1,9 @@
-﻿using FarmerScheme.API.Application.Interfaces.Auth;
+using FarmerScheme.API.Application.Interfaces.Auth;
 using FarmerScheme.API.Responses;
 using Microsoft.AspNetCore.Mvc;
 
 [ApiController]
 [Route("api/auth")]
-[IgnoreAntiforgeryToken]
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
@@ -33,9 +32,9 @@ public class AuthController : ControllerBase
     [HttpPost("forgot-password")]
     public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto dto)
     {
-        var token = await _authService.ForgotPasswordAsync(dto);
+        var message = await _authService.ForgotPasswordAsync(dto);
 
-        return Ok(new ApiResponse<object>(true, "Reset token generated", new { token }));
+        return Ok(new ApiResponse<object>(true, message, null));
     }
 
     [HttpPost("reset-password")]

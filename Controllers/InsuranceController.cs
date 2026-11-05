@@ -1,4 +1,5 @@
 using FarmerScheme.API.Application.DTOs.Insurance;
+using FarmerScheme.API.Application.DTOs.Response;
 using FarmerScheme.API.Application.Interfaces;
 using FarmerScheme.API.Responses;
 using Microsoft.AspNetCore.Authorization;
@@ -23,24 +24,24 @@ public class InsuranceController : ControllerBase
 
     [Authorize(Roles = "Farmer")]
     [HttpPost("apply")]
-    public async Task<IActionResult> ApplyInsurance(CreateInsuranceApplicationDto dto)
+    public async Task<IActionResult> ApplyInsurance([FromBody] CreateInsuranceApplicationDto dto)
     {
         var farmerId = GetUserId();
 
         var result = await _service.ApplyInsuranceAsync(farmerId, dto);
 
-        return Ok(new ApiResponse<object>(true, "Insurance application submitted", result));
+        return Ok(new ApiResponse<InsuranceApplicationResponseDto>(true, "Insurance application submitted", result));
     }
 
     [Authorize(Roles = "Farmer")]
     [HttpGet]
-    public async Task<IActionResult> MyApplications()
+    public async Task<IActionResult> MyApplications([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
     {
         var farmerId = GetUserId();
 
-        var result = await _service.GetMyApplicationsAsync(farmerId);
+        var result = await _service.GetMyApplicationsAsync(farmerId, page, pageSize);
 
-        return Ok(new ApiResponse<object>(true, "Applications fetched successfully", result));
+        return Ok(new ApiResponse<List<InsuranceApplicationResponseDto>>(true, "Applications fetched successfully", result));
     }
 
     [Authorize(Roles = "Admin")]
@@ -69,10 +70,10 @@ public class InsuranceController : ControllerBase
 
     [Authorize(Roles = "Admin")]
     [HttpGet("all")]
-    public async Task<IActionResult> GetAllApplications()
+    public async Task<IActionResult> GetAllApplications([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
     {
-        var result = await _service.GetAllApplicationsAsync();
+        var result = await _service.GetAllApplicationsAsync(page, pageSize);
 
-        return Ok(new ApiResponse<object>(true, "All applications fetched", result));
+        return Ok(new ApiResponse<List<InsuranceApplicationResponseDto>>(true, "All applications fetched", result));
     }
 }

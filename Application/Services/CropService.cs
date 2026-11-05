@@ -1,4 +1,5 @@
-﻿using AutoMapper;
+using AutoMapper;
+using FarmerScheme.API.Application.DTOs.Response;
 using FarmerScheme.API.Application.Interfaces;
 using FarmerScheme.API.Domain.Entities;
 using FarmerScheme.API.Domain.Enums;
@@ -16,46 +17,56 @@ public class CropService : ICropService
         _mapper = mapper;
     }
 
-
     private async Task EnsureProfileVerified(int farmerId)
     {
         var farmer = await _context.Users
+            .Include(f => f.Profile)
             .FirstOrDefaultAsync(f => f.Id == farmerId);
 
         if (farmer == null)
             throw new KeyNotFoundException("Farmer not found");
 
+        if (!farmer.IsApproved)
+            throw new InvalidOperationException("Farmer account must be approved by an administrator before adding crops");
+
+        if (farmer.Profile == null)
+            throw new InvalidOperationException("Please complete your profile before registering crops");
     }
 
-    public async Task<Crop> CreateCropAsync(int farmerId, CreateCropDto dto)
+    public async Task<CropResponseDto> CreateCropAsync(int farmerId, CreateCropDto dto)
     {
         await EnsureProfileVerified(farmerId);
 
         var crop = _mapper.Map<Crop>(dto);
-
         crop.FarmerId = farmerId;
         crop.Status = BaseStatus.Pending;
 
         _context.Crops.Add(crop);
-
         await _context.SaveChangesAsync();
 
-        return crop;
+        return _mapper.Map<CropResponseDto>(crop);
     }
 
-    public async Task<List<Crop>> GetMyCropsAsync(int farmerId, int page = 1, int pageSize = 20)
+    public async Task<List<CropResponseDto>> GetMyCropsAsync(int farmerId, int page = 1, int pageSize = 20)
     {
-        return await _context.Crops
+        var crops = await _context.Crops
+            .AsNoTracking()
             .Where(c => c.FarmerId == farmerId)
+            .OrderByDescending(c => c.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
+
+        return _mapper.Map<List<CropResponseDto>>(crops);
     }
 
-    public async Task<Crop?> GetCropByIdAsync(int cropId)
+    public async Task<CropResponseDto?> GetCropByIdAsync(int cropId)
     {
-        return await _context.Crops
+        var crop = await _context.Crops
+            .AsNoTracking()
             .FirstOrDefaultAsync(c => c.Id == cropId);
+
+        return crop == null ? null : _mapper.Map<CropResponseDto>(crop);
     }
 
     public async Task<bool> UpdateCropAsync(int cropId, int farmerId, UpdateCropDto dto)
@@ -67,7 +78,6 @@ public class CropService : ICropService
             throw new KeyNotFoundException("Crop not found");
 
         _mapper.Map(dto, crop);
-
         await _context.SaveChangesAsync();
 
         return true;
@@ -82,7 +92,6 @@ public class CropService : ICropService
             throw new KeyNotFoundException("Crop not found");
 
         _context.Crops.Remove(crop);
-
         await _context.SaveChangesAsync();
 
         return true;

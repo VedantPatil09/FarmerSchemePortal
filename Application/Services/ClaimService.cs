@@ -17,7 +17,6 @@ public class ClaimService : IClaimService
         _mapper = mapper;
     }
 
-
     public async Task<InsuranceClaim> CreateClaimAsync(CreateClaimDto dto, int userId)
     {
         var application = await _context.InsuranceApplications
@@ -49,7 +48,6 @@ public class ClaimService : IClaimService
         };
 
         _context.InsuranceClaims.Add(claim);
-
         await _context.SaveChangesAsync();
 
         var document = new Document
@@ -61,7 +59,6 @@ public class ClaimService : IClaimService
         };
 
         _context.Documents.Add(document);
-
         await _context.SaveChangesAsync();
 
         return claim;
@@ -76,7 +73,6 @@ public class ClaimService : IClaimService
             throw new KeyNotFoundException("Claim not found");
 
         claim.Status = BaseStatus.Approved;
-
         await _context.SaveChangesAsync();
 
         return true;
@@ -85,6 +81,7 @@ public class ClaimService : IClaimService
     public async Task<List<ClaimResponseDto>> GetClaimsAsync(int userId, bool isAdmin)
     {
         var query = _context.InsuranceClaims
+            .AsNoTracking()
             .Include(c => c.InsuranceApplication)
                 .ThenInclude(a => a.Farmer)
             .Include(c => c.Documents)

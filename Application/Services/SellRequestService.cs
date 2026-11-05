@@ -1,4 +1,5 @@
 using AutoMapper;
+using FarmerScheme.API.Application.DTOs.Response;
 using FarmerScheme.API.Application.Interfaces;
 using FarmerScheme.API.Domain.Entities;
 using FarmerScheme.API.Domain.Enums;
@@ -16,22 +17,22 @@ public class SellRequestService : ISellRequestService
         _mapper = mapper;
     }
 
-    public async Task<SellRequest> CreateSellRequestAsync(int farmerId, int cropId)
+    public async Task<SellRequestResponseDto> CreateSellRequestAsync(int farmerId, int cropId)
     {
         var crop = await _context.Crops
             .FirstOrDefaultAsync(c => c.Id == cropId && c.FarmerId == farmerId);
 
         if (crop == null)
-            throw new KeyNotFoundException("Crop not found");
+            throw new KeyNotFoundException("Crop not found or does not belong to you");
 
         if (crop.Status != BaseStatus.Approved)
-            throw new Exception("Crop must be approved before creating sell request");
+            throw new InvalidOperationException("Crop must be approved by admin before creating a sell request");
 
         var existingRequest = await _context.SellRequests
             .FirstOrDefaultAsync(s => s.CropId == cropId);
 
         if (existingRequest != null)
-            throw new InvalidOperationException("Sell request already exists for this crop");
+            throw new InvalidOperationException("A sell request already exists for this crop");
 
         var claimApproved = await _context.InsuranceClaims
             .Include(c => c.InsuranceApplication)
@@ -49,21 +50,30 @@ public class SellRequestService : ISellRequestService
         _context.SellRequests.Add(sellRequest);
         await _context.SaveChangesAsync();
 
-        return sellRequest;
+        // Load navigation properties for mapping
+        sellRequest.Crop = crop;
+
+        return _mapper.Map<SellRequestResponseDto>(sellRequest);
     }
 
-    public async Task<List<SellRequest>> GetAllSellRequestsAsync(int page = 1, int pageSize = 20)
+    public async Task<List<SellRequestResponseDto>> GetAllSellRequestsAsync(int page = 1, int pageSize = 20)
     {
-        return await _context.SellRequests
+        var requests = await _context.SellRequests
+            .AsNoTracking()
             .Include(s => s.Crop)
+            .Include(s => s.Bids)
+            .OrderByDescending(s => s.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
+
+        return _mapper.Map<List<SellRequestResponseDto>>(requests);
     }
 
     public async Task<object> GetOpenAuctionsAsync(int page = 1, int pageSize = 20)
     {
         return await _context.SellRequests
+            .AsNoTracking()
             .Where(s => s.Status == SellRequestStatus.Active)
             .Include(s => s.Crop)
             .Include(s => s.Bids)
@@ -92,14 +102,15 @@ public class SellRequestService : ISellRequestService
         if (request == null)
             throw new KeyNotFoundException("Sell request not found");
 
+        if (request.Status != SellRequestStatus.Pending)
+            throw new InvalidOperationException("Only pending sell requests can be approved");
+
         request.Status = SellRequestStatus.Active; // start auction
 
         await _context.SaveChangesAsync();
 
         return true;
     }
-
-
 
     public async Task<bool> CloseAuctionAsync(int sellRequestId)
     {
@@ -109,13 +120,16 @@ public class SellRequestService : ISellRequestService
             .FirstOrDefaultAsync(s => s.Id == sellRequestId);
 
         if (request == null)
-            throw new Exception("Sell request not found");
+            throw new KeyNotFoundException("Sell request not found");
 
         if (request.Status == SellRequestStatus.Closed)
-            throw new Exception("Auction already closed");
+            throw new InvalidOperationException("Auction is already closed");
+
+        if (request.Status != SellRequestStatus.Active)
+            throw new InvalidOperationException("Auction is not active");
 
         if (request.Bids == null || !request.Bids.Any())
-            throw new Exception("No bids placed for this auction");
+            throw new InvalidOperationException("No bids have been placed for this auction");
 
         var highestBid = request.Bids
             .OrderByDescending(b => b.BidAmount)
@@ -136,16 +150,17 @@ public class SellRequestService : ISellRequestService
     public async Task<object> GetAuctionResultAsync(int sellRequestId)
     {
         var request = await _context.SellRequests
+            .AsNoTracking()
             .Include(s => s.Crop)
             .Include(s => s.Bids)
-            .ThenInclude(b => b.Bidder)
+                .ThenInclude(b => b.Bidder)
             .FirstOrDefaultAsync(s => s.Id == sellRequestId);
 
         if (request == null)
             throw new KeyNotFoundException("Sell request not found");
 
         if (request.Status != SellRequestStatus.Closed)
-            throw new Exception("Auction is still open");
+            throw new InvalidOperationException("Auction is still open or has not started");
 
         var highestBid = request.Bids
             .OrderByDescending(b => b.BidAmount)

@@ -1,4 +1,4 @@
-﻿using FarmerScheme.API.Application.Interfaces;
+using FarmerScheme.API.Application.Interfaces;
 using FarmerScheme.API.Domain.Entities;
 using FarmerScheme.API.Domain.Enums;
 using FarmerScheme.API.Infrastructure.Data;
@@ -18,7 +18,9 @@ public class AdminService : IAdminService
     public async Task<List<User>> GetPendingUsersAsync(int page = 1, int pageSize = 20)
     {
         return await _context.Users
+            .AsNoTracking()
             .Where(u => !u.IsApproved)
+            .OrderByDescending(u => u.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
@@ -44,7 +46,9 @@ public class AdminService : IAdminService
     public async Task<List<Crop>> GetPendingCropsAsync(int page = 1, int pageSize = 20)
     {
         return await _context.Crops
+            .AsNoTracking()
             .Where(c => c.Status == BaseStatus.Pending)
+            .OrderByDescending(c => c.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
@@ -70,11 +74,12 @@ public class AdminService : IAdminService
     public async Task<List<SellRequest>> GetPendingSellRequestsAsync(int page = 1, int pageSize = 20)
     {
         return await _context.SellRequests
+            .AsNoTracking()
             .Where(s => s.Status == SellRequestStatus.Pending)
             .Include(s => s.Crop)
+            .OrderByDescending(s => s.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
     }
-
 }
