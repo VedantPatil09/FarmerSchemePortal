@@ -1,10 +1,13 @@
-﻿using FarmerScheme.API.Domain.Entities;
+using FarmerScheme.API.Application.DTOs.Response;
 
-public interface IBidService
+namespace FarmerScheme.API.Application.Interfaces
 {
-    Task<Bid> PlaceBidAsync(int bidderId, PlaceBidDto dto);
+    public interface IBidService
+    {
+        Task<BidResponseDto> PlaceBidAsync(int bidderId, PlaceBidDto dto);
 
-    Task<List<Bid>> GetBidsForAuctionAsync(int sellRequestId);
+        Task<List<BidResponseDto>> GetBidsForAuctionAsync(int sellRequestId);
 
-    Task<object> GetBidHistoryAsync(int sellRequestId);
+        Task<List<BidResponseDto>> GetBidHistoryAsync(int sellRequestId);
+    }
 }

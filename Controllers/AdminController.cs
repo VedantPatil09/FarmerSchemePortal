@@ -1,4 +1,4 @@
-﻿using FarmerScheme.API.Application.Interfaces;
+using FarmerScheme.API.Application.Interfaces;
 using FarmerScheme.API.Responses;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -6,17 +6,21 @@ using Microsoft.AspNetCore.Mvc;
 [ApiController]
 [Route("api/admin")]
 [Authorize(Roles = "Admin")]
-[IgnoreAntiforgeryToken]
-public class AdminController(IAdminService service) : ControllerBase
+public class AdminController : ControllerBase
 {
-    private readonly IAdminService _service = service;
+    private readonly IAdminService _service;
+
+    public AdminController(IAdminService service)
+    {
+        _service = service;
+    }
 
     // ---------------- USERS ----------------
 
     [HttpGet("pending-users")]
-    public async Task<IActionResult> GetPendingUsers()
+    public async Task<IActionResult> GetPendingUsers([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
     {
-        var users = await _service.GetPendingUsersAsync();
+        var users = await _service.GetPendingUsersAsync(page, pageSize);
 
         return Ok(new ApiResponse<object>(true, "Pending users fetched", users));
     }
@@ -32,9 +36,9 @@ public class AdminController(IAdminService service) : ControllerBase
     // ---------------- CROPS ----------------
 
     [HttpGet("pending-crops")]
-    public async Task<IActionResult> GetPendingCrops()
+    public async Task<IActionResult> GetPendingCrops([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
     {
-        var crops = await _service.GetPendingCropsAsync();
+        var crops = await _service.GetPendingCropsAsync(page, pageSize);
 
         return Ok(new ApiResponse<object>(true, "Pending crops fetched", crops));
     }
@@ -50,9 +54,9 @@ public class AdminController(IAdminService service) : ControllerBase
     // ---------------- SELL REQUESTS ----------------
 
     [HttpGet("pending-sellrequests")]
-    public async Task<IActionResult> GetPendingSellRequests()
+    public async Task<IActionResult> GetPendingSellRequests([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
     {
-        var requests = await _service.GetPendingSellRequestsAsync();
+        var requests = await _service.GetPendingSellRequestsAsync(page, pageSize);
 
         return Ok(new ApiResponse<object>(true, "Pending sell requests fetched", requests));
     }

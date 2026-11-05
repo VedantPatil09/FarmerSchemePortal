@@ -1,4 +1,6 @@
-﻿using AutoMapper;
+using System.Data;
+using AutoMapper;
+using FarmerScheme.API.Application.DTOs.Response;
 using FarmerScheme.API.Application.Interfaces;
 using FarmerScheme.API.Domain.Entities;
 using FarmerScheme.API.Domain.Enums;
@@ -16,72 +18,69 @@ public class BidService : IBidService
         _mapper = mapper;
     }
 
-    public async Task<Bid> PlaceBidAsync(int bidderId, PlaceBidDto dto)
+    public async Task<BidResponseDto> PlaceBidAsync(int bidderId, PlaceBidDto dto)
     {
+        using var transaction = await _context.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+
         var sellRequest = await _context.SellRequests
             .Include(s => s.Crop)
             .Include(s => s.Bids)
             .FirstOrDefaultAsync(s => s.Id == dto.SellRequestId);
 
         if (sellRequest == null)
-            throw new Exception("Auction not found");
+            throw new KeyNotFoundException("Auction not found");
 
         if (sellRequest.Status != SellRequestStatus.Active)
-            throw new Exception("Auction is closed");
+            throw new InvalidOperationException("Auction is closed");
 
         if (sellRequest.Crop.FarmerId == bidderId)
-            throw new Exception("Farmer cannot bid on own crop");
+            throw new InvalidOperationException("Farmer cannot bid on own crop");
 
         if (dto.BidAmount < sellRequest.Crop.BasePrice)
-            throw new Exception("Bid must be greater than crop base price");
+            throw new InvalidOperationException("Bid must be greater than or equal to crop base price");
 
         var highestBid = sellRequest.Bids
             .OrderByDescending(b => b.BidAmount)
             .FirstOrDefault();
 
         if (highestBid != null && dto.BidAmount <= highestBid.BidAmount)
-            throw new Exception("Bid must be higher than current highest bid");
+            throw new InvalidOperationException("Bid must be higher than current highest bid");
 
         var bid = _mapper.Map<Bid>(dto);
-
         bid.BidderId = bidderId;
+        bid.BidTime = DateTime.UtcNow;
 
         _context.Bids.Add(bid);
-
         await _context.SaveChangesAsync();
+        await transaction.CommitAsync();
 
-        return bid;
+        // Load bidder for mapping
+        await _context.Entry(bid).Reference(b => b.Bidder).LoadAsync();
+
+        return _mapper.Map<BidResponseDto>(bid);
     }
 
-    public async Task<List<Bid>> GetBidsForAuctionAsync(int sellRequestId)
-    {
-        return await _context.Bids
-            .Where(b => b.SellRequestId == sellRequestId)
-            .Include(b => b.Bidder)
-            .OrderByDescending(b => b.BidAmount)
-            .ToListAsync();
-    }
-
-    public async Task<object> GetBidHistoryAsync(int sellRequestId)
+    public async Task<List<BidResponseDto>> GetBidsForAuctionAsync(int sellRequestId)
     {
         var bids = await _context.Bids
+            .AsNoTracking()
             .Where(b => b.SellRequestId == sellRequestId)
             .Include(b => b.Bidder)
             .OrderByDescending(b => b.BidAmount)
-            .Select(b => new
-            {
-                BidId = b.Id,
-                BidderId = b.BidderId,
-                BidderName = b.Bidder.FullName,
-                BidAmount = b.BidAmount,
-                IsWinningBid = b.IsWinningBid,
-                PlacedAt = b.CreatedAt
-            })
             .ToListAsync();
 
-        if (!bids.Any())
-            throw new Exception("No bids placed yet");
+        return _mapper.Map<List<BidResponseDto>>(bids);
+    }
 
-        return bids;
+    public async Task<List<BidResponseDto>> GetBidHistoryAsync(int sellRequestId)
+    {
+        var bids = await _context.Bids
+            .AsNoTracking()
+            .Where(b => b.SellRequestId == sellRequestId)
+            .Include(b => b.Bidder)
+            .OrderByDescending(b => b.BidAmount)
+            .ToListAsync();
+
+        return _mapper.Map<List<BidResponseDto>>(bids);
     }
 }

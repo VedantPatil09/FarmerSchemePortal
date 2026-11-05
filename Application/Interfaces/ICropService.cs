@@ -1,13 +1,14 @@
-﻿namespace FarmerScheme.API.Domain.Entities
-{
+using FarmerScheme.API.Application.DTOs.Response;
 
+namespace FarmerScheme.API.Application.Interfaces
+{
     public interface ICropService
     {
-        Task<Crop> CreateCropAsync(int farmerId, CreateCropDto dto);
+        Task<CropResponseDto> CreateCropAsync(int farmerId, CreateCropDto dto);
 
-        Task<List<Crop>> GetMyCropsAsync(int farmerId, int page = 1, int pageSize = 20);
+        Task<List<CropResponseDto>> GetMyCropsAsync(int farmerId, int page = 1, int pageSize = 20);
 
-        Task<Crop?> GetCropByIdAsync(int cropId);
+        Task<CropResponseDto?> GetCropByIdAsync(int cropId);
 
         Task<bool> UpdateCropAsync(int cropId, int farmerId, UpdateCropDto dto);
 

@@ -1,4 +1,4 @@
-﻿using FarmerScheme.API.Application.DTOs.Insurance;
+using FarmerScheme.API.Application.DTOs.Insurance;
 using FarmerScheme.API.Application.Interfaces;
 using FarmerScheme.API.Responses;
 using Microsoft.AspNetCore.Authorization;
@@ -20,7 +20,7 @@ namespace FarmerScheme.API.Controllers
 
         [Authorize(Roles = "Farmer")]
         [HttpPost]
-        public async Task<IActionResult> CreateClaim(CreateClaimDto dto)
+        public async Task<IActionResult> CreateClaim([FromBody] CreateClaimDto dto)
         {
             var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
@@ -47,7 +47,7 @@ namespace FarmerScheme.API.Controllers
 
             var result = await _claimService.GetClaimsAsync(userId, isAdmin);
 
-            return Ok(new ApiResponse<object>(true, "Claims fetched", result));
+            return Ok(new ApiResponse<List<ClaimResponseDto>>(true, "Claims fetched", result));
         }
     }
 }

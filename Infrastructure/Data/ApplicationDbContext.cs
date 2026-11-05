@@ -1,4 +1,4 @@
-﻿using FarmerScheme.API.Common;
+using FarmerScheme.API.Common;
 using FarmerScheme.API.Domain.Entities;
 using FarmerScheme.API.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -56,39 +56,39 @@ namespace FarmerScheme.API.Infrastructure.Data
                 .HasIndex(u => u.Email)
                 .IsUnique();
 
-            // User ↔ Profile (1-1)
+            // User <-> Profile (1-1)
             modelBuilder.Entity<User>()
                 .HasOne(u => u.Profile)
                 .WithOne(p => p.User)
                 .HasForeignKey<Profile>(p => p.UserId);
 
-            // Crop → Farmer
+            // Crop -> Farmer
             modelBuilder.Entity<Crop>()
                 .HasOne(c => c.Farmer)
                 .WithMany()
                 .HasForeignKey(c => c.FarmerId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // Crop → SellRequests (1-M) ✅ FIXED
+            // Crop -> SellRequests (1-M)
             modelBuilder.Entity<SellRequest>()
                 .HasOne(s => s.Crop)
                 .WithMany(c => c.SellRequests)
                 .HasForeignKey(s => s.CropId);
 
-            // Bid → SellRequest
+            // Bid -> SellRequest
             modelBuilder.Entity<Bid>()
                 .HasOne(b => b.SellRequest)
                 .WithMany(s => s.Bids)
                 .HasForeignKey(b => b.SellRequestId);
 
-            // Bid → Bidder
+            // Bid -> Bidder
             modelBuilder.Entity<Bid>()
                 .HasOne(b => b.Bidder)
                 .WithMany()
                 .HasForeignKey(b => b.BidderId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // InsuranceClaim → InsuranceApplication (1-1)
+            // InsuranceClaim -> InsuranceApplication (1-1)
             modelBuilder.Entity<InsuranceClaim>()
                 .HasOne(c => c.InsuranceApplication)
                 .WithOne(a => a.Claim)
@@ -100,7 +100,7 @@ namespace FarmerScheme.API.Infrastructure.Data
                 .HasForeignKey(i => i.CropId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // AIQueryLog → Crop
+            // AIQueryLog -> Crop
             modelBuilder.Entity<AIQueryLog>()
                 .HasOne(a => a.Crop)
                 .WithMany()
@@ -118,6 +118,31 @@ namespace FarmerScheme.API.Infrastructure.Data
                 .WithMany(u => u.Documents)
                 .HasForeignKey(d => d.UserId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            // ---------------- INDEXES FOR QUERY OPTIMIZATION ----------------
+            modelBuilder.Entity<Crop>()
+                .HasIndex(c => new { c.FarmerId, c.Status });
+
+            modelBuilder.Entity<SellRequest>()
+                .HasIndex(s => s.Status);
+
+            modelBuilder.Entity<SellRequest>()
+                .HasIndex(s => s.CropId);
+
+            modelBuilder.Entity<Bid>()
+                .HasIndex(b => new { b.SellRequestId, b.BidAmount });
+
+            modelBuilder.Entity<InsuranceApplication>()
+                .HasIndex(i => new { i.FarmerId, i.Status });
+
+            modelBuilder.Entity<InsuranceApplication>()
+                .HasIndex(i => i.CropId);
+
+            modelBuilder.Entity<Document>()
+                .HasIndex(d => d.UserId);
+
+            modelBuilder.Entity<Document>()
+                .HasIndex(d => d.ClaimId);
 
             // ---------------- DECIMAL PRECISION ----------------
 
@@ -153,9 +178,14 @@ namespace FarmerScheme.API.Infrastructure.Data
                 .Property(s => s.WinningAmount)
                 .HasPrecision(10, 2);
 
-
-
             // ---------------- SEED ADMIN ----------------
+
+            var adminPasswordHash = _configuration["Seed:AdminPasswordHash"];
+            if (string.IsNullOrWhiteSpace(adminPasswordHash))
+            {
+                // Fallback default dev hash (password: Admin@123)
+                adminPasswordHash = "$2a$11$Vsbxd7eVxZ9v6wan8slLW.ULvj8hmyILvHx5lWA43aS1Np/YsfLQW";
+            }
 
             modelBuilder.Entity<User>().HasData(
                 new User
@@ -164,7 +194,7 @@ namespace FarmerScheme.API.Infrastructure.Data
                     FullName = "System Admin",
                     Email = "adminfarmerscheme@gmail.com",
                     PhoneNumber = "9999999999",
-                    PasswordHash = _configuration["Seed:AdminPasswordHash"]!,
+                    PasswordHash = adminPasswordHash,
                     Role = RoleType.Admin,
                     IsApproved = true,
                     IsActive = true,

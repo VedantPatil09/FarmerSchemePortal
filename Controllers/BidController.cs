@@ -1,3 +1,4 @@
+using FarmerScheme.API.Application.DTOs.Response;
 using FarmerScheme.API.Application.Interfaces;
 using FarmerScheme.API.Responses;
 using Microsoft.AspNetCore.Authorization;
@@ -7,10 +8,14 @@ using System.Security.Claims;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-[IgnoreAntiforgeryToken]
-public class BidController(IBidService bidService) : ControllerBase
+public class BidController : ControllerBase
 {
-    private readonly IBidService _bidService = bidService;
+    private readonly IBidService _bidService;
+
+    public BidController(IBidService bidService)
+    {
+        _bidService = bidService;
+    }
 
     private int GetUserId()
     {
@@ -25,7 +30,7 @@ public class BidController(IBidService bidService) : ControllerBase
 
         var bid = await _bidService.PlaceBidAsync(bidderId, dto);
 
-        return Ok(new ApiResponse<object>(true, "Bid placed successfully", bid));
+        return Ok(new ApiResponse<BidResponseDto>(true, "Bid placed successfully", bid));
     }
 
     [HttpGet("{sellRequestId}")]
@@ -33,7 +38,7 @@ public class BidController(IBidService bidService) : ControllerBase
     {
         var bids = await _bidService.GetBidsForAuctionAsync(sellRequestId);
 
-        return Ok(new ApiResponse<object>(true, "Bids fetched successfully", bids));
+        return Ok(new ApiResponse<List<BidResponseDto>>(true, "Bids fetched successfully", bids));
     }
 
     [HttpGet("history/{sellRequestId}")]
@@ -41,6 +46,6 @@ public class BidController(IBidService bidService) : ControllerBase
     {
         var result = await _bidService.GetBidHistoryAsync(sellRequestId);
 
-        return Ok(new ApiResponse<object>(true, "Bid history fetched successfully", result));
+        return Ok(new ApiResponse<List<BidResponseDto>>(true, "Bid history fetched successfully", result));
     }
 }
